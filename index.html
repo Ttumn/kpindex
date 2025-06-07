@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor Geomagnético para Drones - Argentina</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-annotation/2.0.1/chartjs-plugin-annotation.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+            color: #f1f5f9;
+            min-height: 100vh;
+            padding: 10px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            position: relative;
+        }
+        .title {
+            font-size: clamp(1.8rem, 4vw, 2.5rem);
+            font-weight: 800;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #10b981 0%, #3b82f6 50%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .subtitle {
+            font-size: clamp(1rem, 2.5vw, 1.2rem);
+            color: #94a3b8;
+            margin-bottom: 20px;
+        }
+        .argentina-flag {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(90deg, #74acdf 33%, #ffffff 33%, #ffffff 66%, #74acdf 66%);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            color: #1e293b;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+        .status-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .status-card {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 16px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.3s ease;
+        }
+        .status-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(148, 163, 184, 0.4);
+            box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.3);
+        }
+        .status-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+        }
+        .status-online { background: rgba(16, 185, 129, 0.2); }
+        .status-warning { background: rgba(251, 191, 36, 0.2); }
+        .status-danger { background: rgba(239, 68, 68, 0.2); }
+        .status-info { flex: 1; }
+        .status-label {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin-bottom: 4px;
+        }
+        .status-value {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        .chart-section {
+            background: rgba(30, 41, 59, 0.3);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            border-radius: 20px;
+            padding: 20px;
+        }
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .chart-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #f1f5f9;
+        }
+        .chart-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -5px rgba(59, 130, 246, 0.5);
+        }
+        .btn-secondary {
+            background: rgba(148, 163, 184, 0.2);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+        }
+        .btn-secondary:hover {
+            background: rgba(148, 163, 184, 0.3);
+            box-shadow: 0 10px 20px -5px rgba(148, 163, 184, 0.3);
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 20px;
+        }
+        .recommendation-panel {
+            background: rgba(30, 41, 59, 0.3);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            border-radius: 20px;
+            padding: 20px;
+            height: fit-content;
+        }
+        .recommendation-header {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .drone-status {
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .drone-icon {
+            font-size: 4rem;
+            margin-bottom: 15px;
+        }
+        .drone-status-text {
+            font-size: 1.8rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+        }
+        .drone-status-safe { color: #10b981; }
+        .drone-status-caution { color: #f59e0b; }
+        .drone-status-danger { color: #ef4444; }
+        .drone-recommendation {
+            font-size: 1rem;
+            color: #cbd5e1;
+            line-height: 1.6;
+        }
+        .risk-factors {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .risk-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 12px;
+            font-size: 0.95rem;
+        }
+        .risk-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .risk-low { background: #10b981; }
+        .risk-medium { background: #f59e0b; }
+        .risk-high { background: #ef4444; }
+        .data-sources {
+            background: rgba(30, 41, 59, 0.3);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        .source-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .source-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            padding-left: 16px;
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 12px;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            text-decoration: none;
+            color: #cbd5e1;
+            border-left: 3px solid transparent;
+            position: relative;
+        }
+        .source-item:hover {
+            background: rgba(30, 41, 59, 0.8);
+            transform: translateX(5px);
+        }
+        .source-flag {
+            font-size: 1.2rem;
+        }
+        .source-desc {
+            margin-left: auto;
+            color: #94a3b8;
+            font-size: 0.8rem;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            color: #94a3b8;
+        }
+        .legend-color {
+            width: 20px;
+            height: 3px;
+            border-radius: 2px;
+        }
+        .info-panel {
+            background: rgba(30, 41, 59, 0.3);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .info-card {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+        .info-label {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin-bottom: 8px;
+        }
+        .info-value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #f1f5f9;
+        }
+        .info-subtitle {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-top: 4px;
+        }
+        .scale-bar {
+            display: flex;
+            height: 40px;
+            border-radius: 20px;
+            overflow: hidden;
+            margin: 20px 0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        }
+        .scale-segment {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: white;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .scale-segment:hover {
+            transform: scaleY(1.1);
+            z-index: 1;
+        }
+        .kp-0 { background: #10b981; }
+        .kp-1 { background: #34d399; }
+        .kp-2 { background: #6ee7b7; }
+        .kp-3 { background: #fbbf24; }
+        .kp-4 { background: #f59e0b; }
+        .kp-5 { background: #fb923c; }
+        .kp-6 { background: #ef4444; }
+        .kp-7 { background: #dc2626; }
+        .kp-8 { background: #991b1b; }
+        .kp-9 { background: #7c2d12; }
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 20px;
+            z-index: 10;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(59, 130, 246, 0.2);
+            border-left: 4px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+        .footer a {
+            color: #3b82f6;
+            text-decoration: none;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            .recommendation-panel {
+                order: -1;
+            }
+        }
+        @media (max-width: 768px) {
+            body {
+                padding: 5px;
+            }
+            .container {
+                padding: 15px;
+                border-radius: 16px;
+            }
+            .status-bar {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            .chart-container {
+                height: 300px;
+            }
+            .info-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            .source-grid {
+                grid-template-columns: 1fr;
+            }
+            .chart-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .chart-controls {
+                justify-content: center;
+            }
+            .scale-bar {
+                height: 30px;
+            }
+            .scale-segment {
+                font-size: 0.7rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">🛸 Monitor Geomagnético para Drones</h1>
+            <p class="subtitle">Sistema Integrado de Predicción y Alertas en Tiempo Real</p>
+            <div class="argentina-flag">🇦🇷 Optimizado para Argentina y Sudamérica</div>
+        </div>
+        <div class="status-bar">
+            <div class="status-card">
+                <div class="status-icon status-online pulse">🟢</div>
+                <div class="status-info">
+                    <div class="status-label">Estado del Sistema</div>
+                    <div class="status-value" id="systemStatus">En línea</div>
+                </div>
+            </div>
+            <div class="status-card">
+                <div class="status-icon status-warning">⚡</div>
+                <div class="status-info">
+                    <div class="status-label">Índice Kp Actual</div>
+                    <div class="status-value" id="currentKp">--</div>
+                </div>
+            </div>
+            <div class="status-card">
+                <div class="status-icon status-warning">📡</div>
+                <div class="status-info">
+                    <div class="status-label">Precisión GPS</div>
+                    <div class="status-value" id="gpsAccuracy">--</div>
+                </div>
+            </div>
+            <div class="status-card">
+                <div class="status-icon status-online">🕐</div>
+                <div class="status-info">
+                    <div class="status-label">Última Actualización</div>
+                    <div class="status-value" id="lastUpdate">--:--</div>
+                </div>
+            </div>
+        </div>
+        <div class="main-grid">
+            <div class="chart-section">
+                <div class="chart-header">
+                    <h2 class="chart-title">📊 Pronóstico Integrado Multi-fuente 72 Horas</h2>
+                    <div class="chart-controls">
+                        <button class="btn" onclick="refreshData()">🔄 Actualizar</button>
+                        <button class="btn btn-secondary" onclick="toggleAutoRefresh()">⏰ Auto: <span id="autoRefreshStatus">OFF</span></button>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <div class="loading-overlay" id="chartLoading"><div class="spinner"></div></div>
+                    <canvas id="mainChart"></canvas>
+                </div>
+                <div class="legend">
+                    <div class="legend-item"><div class="legend-color" style="background: #10b981;"></div><span>Kp PAGER/GFZ</span></div>
+                    <div class="legend-item"><div class="legend-color" style="background: #f59e0b;"></div><span>Kp NOAA/SWPC</span></div>
+                    <div class="legend-item"><div class="legend-color" style="background: #3b82f6;"></div><span>HP30 GFZ</span></div>
+                    <div class="legend-item"><div class="legend-color" style="background: #8b5cf6;"></div><span>KSA EMBRACE</span></div>
+                    <div class="legend-item"><div class="legend-color" style="background: rgba(239, 68, 68, 0.3);"></div><span>Zona Riesgo</span></div>
+                </div>
+                <div class="scale-bar">
+                    <div class="scale-segment kp-0">0</div>
+                    <div class="scale-segment kp-1">1</div>
+                    <div class="scale-segment kp-2">2</div>
+                    <div class="scale-segment kp-3">3</div>
+                    <div class="scale-segment kp-4">4</div>
+                    <div class="scale-segment kp-5">5</div>
+                    <div class="scale-segment kp-6">6</div>
+                    <div class="scale-segment kp-7">7</div>
+                    <div class="scale-segment kp-8">8</div>
+                    <div class="scale-segment kp-9">9</div>
+                </div>
+            </div>
+            <div class="recommendation-panel">
+                <h3 class="recommendation-header"><span>🚁</span> Recomendación Operacional</h3>
+                <div class="drone-status" id="droneStatus">
+                    <div class="drone-icon">🛸</div>
+                    <div class="drone-status-text drone-status-safe" id="statusText">VUELO SEGURO</div>
+                    <div class="drone-recommendation" id="statusRecommendation">Condiciones óptimas para operaciones de agricultura de precisión</div>
+                </div>
+                <h4 style="margin: 20px 0 15px; font-size: 1.1rem;">Factores de Riesgo</h4>
+                <div class="risk-factors">
+                    <div class="risk-item"><div class="risk-indicator risk-low" id="gpsRisk"></div><span><strong>GPS:</strong> <span id="gpsRiskText">Precisión normal (±1m)</span></span></div>
+                    <div class="risk-item"><div class="risk-indicator risk-low" id="magRisk"></div><span><strong>Brújula:</strong> <span id="magRiskText">Sin interferencias</span></span></div>
+                    <div class="risk-item"><div class="risk-indicator risk-low" id="commRisk"></div><span><strong>Comunicaciones:</strong> <span id="commRiskText">Señal estable</span></span></div>
+                    <div class="risk-item"><div class="risk-indicator risk-low" id="samaRisk"></div><span><strong>SAMA:</strong> <span id="samaRiskText">Efecto mínimo</span></span></div>
+                </div>
+            </div>
+        </div>
+        <div class="info-panel">
+            <h3 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 15px;">📈 Estadísticas del Pronóstico</h3>
+            <div class="info-grid">
+                <div class="info-card"><div class="info-label">Kp Máximo Esperado</div><div class="info-value" id="maxKp">--</div><div class="info-subtitle" id="maxKpTime">--</div></div>
+                <div class="info-card"><div class="info-label">Actividad Promedio</div><div class="info-value" id="avgActivity">--</div><div class="info-subtitle" id="activityLevel">--</div></div>
+                <div class="info-card"><div class="info-label">Probabilidad Kp≥5</div><div class="info-value" id="stormProb">--%</div><div class="info-subtitle" id="stormRisk">--</div></div>
+                <div class="info-card"><div class="info-label">Ventana Óptima</div><div class="info-value" id="optimalWindow">--</div><div class="info-subtitle" id="optimalHours">--</div></div>
+            </div>
+            <h3 style="font-size: 1.1rem; font-weight: 700; margin: 20px 0 15px;">🌎 Datos Regionales Sudamérica</h3>
+            <div class="info-grid">
+                <div class="info-card"><div class="info-label">Índice DST (Kyoto)</div><div class="info-value" id="dstValue">-- nT</div><div class="info-subtitle" id="dstStatus">--</div></div>
+                <div class="info-card"><div class="info-label">Índice KSA (EMBRACE)</div><div class="info-value" id="ksaValue">--</div><div class="info-subtitle" id="ksaStatus">K Sudamericano</div></div>
+                <div class="info-card"><div class="info-label">Campo en Pilar</div><div class="info-value" id="pilField">-- nT</div><div class="info-subtitle" id="pilStatus">INTERMAGNET PIL</div></div>
+                <div class="info-card"><div class="info-label">Intensidad SAMA</div><div class="info-value" id="samaIntensity">-- μT</div><div class="info-subtitle" id="samaStatus">--</div></div>
+                <div class="info-card"><div class="info-label">Campo en Vassouras</div><div class="info-value" id="vssField">-- nT</div><div class="info-subtitle" id="vssStatus">INTERMAGNET VSS</div></div>
+            </div>
+        </div>
+        <div class="data-sources">
+            <h3 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 5px;">🌐 Fuentes de Datos en Tiempo Real</h3>
+            <p style="font-size: 0.9rem; color: #94a3b8; margin-bottom: 15px;"><span style="color: #10b981;">● Activas</span> | <span style="color: #f59e0b;">● Parcialmente activas</span> | <span style="color: #64748b;">● Solo referencia</span></p>
+            <div class="source-grid">
+                <a href="https://www.spacepager.eu/data-products/forecast-of-kp-index" target="_blank" class="source-item" style="border-left: 3px solid #10b981;">
+                    <span class="source-flag">🇪🇺</span><span>PAGER/GFZ Kp Forecast</span><span class="source-desc">Pronóstico 72h</span>
+                </a>
+                <a href="https://www.swpc.noaa.gov/products/planetary-k-index" target="_blank" class="source-item" style="border-left: 3px solid #10b981;">
+                    <span class="source-flag">🇺🇸</span><span>NOAA Space Weather</span><span class="source-desc">Kp 3 días</span>
+                </a>
+                <a href="https://kp.gfz.de/" target="_blank" class="source-item" style="border-left: 3px solid #10b981;">
+                    <span class="source-flag">🇩🇪</span><span>GFZ Kp/Hp30 API</span><span class="source-desc">Índices horarios</span>
+                </a>
+                <a href="https://imag-data.bgs.ac.uk/GIN_V1/GINForms2" target="_blank" class="source-item" style="border-left: 3px solid #10b981;">
+                    <span class="source-flag">🇦🇷</span><span>INTERMAGNET Pilar/VSS</span><span class="source-desc">Magnetómetros regionales</span>
+                </a>
+                <a href="https://wdc.kugi.kyoto-u.ac.jp/dst_realtime/index.html" target="_blank" class="source-item" style="border-left: 3px solid #10b981;">
+                    <span class="source-flag">🇯🇵</span><span>WDC Kyoto DST</span><span class="source-desc">Dst en tiempo real</span>
+                </a>
+                <a href="https://www2.inpe.br/climaespacial/portal/" target="_blank" class="source-item" style="border-left: 3px solid #f59e0b;">
+                    <span class="source-flag">🇧🇷</span><span>EMBRACE/INPE KSA</span><span class="source-desc">K sudamericano</span>
+                </a>
+                <a href="https://wp.df.uba.ar/campogeomagnetico/" target="_blank" class="source-item" style="border-left: 3px solid #64748b;">
+                    <span class="source-flag">🇦🇷</span><span>UBA Geomagnetismo</span><span class="source-desc">Investigación local</span>
+                </a>
+                <a href="https://www.spaceweatherlive.com/" target="_blank" class="source-item" style="border-left: 3px solid #64748b;">
+                    <span class="source-flag">🌍</span><span>SpaceWeatherLive</span><span class="source-desc">Noticias y alertas</span>
+                </a>
+            </div>
+        </div>
+        <div class="footer">
+            <p>Desarrollado para operadores de drones agrícolas en Argentina | Datos activos: PAGER/GFZ, NOAA/SWPC, GFZ HP30, INTERMAGNET (PIL/VSS), WDC Kyoto DST, EMBRACE KSA | <a href="https://github.com" target="_blank">Código Fuente</a></p>
+        </div>
+    </div>
+    <script>
+        let mainChart = null;
+        let autoRefreshInterval = null;
+        let isAutoRefreshEnabled = false;
+        const DATA_SOURCES = {
+            kpPager: "https://www.spacepager.eu/fileadmin/Products/WP3/kp_product_file_FORECAST_PAGER_SWIFT_LAST.json",
+            hp30: "https://kp.gfz.de/app/json/",
+            kpNoaa: "https://services.swpc.noaa.gov/text/3-day-geomag-forecast.txt",
+            kpRealtime1m: "https://services.swpc.noaa.gov/json/planetary_k_index_1m.json",
+            intermagnetPIL: "https://imag-data.bgs.ac.uk/GIN_V1/GINServices?Request=GetData&ObservatoryIagaCode=PIL&samplesPerDay=Minute&dataStartDate=",
+            intermagnetVSS: "https://imag-data.bgs.ac.uk/GIN_V1/GINServices?Request=GetData&ObservatoryIagaCode=VSS&samplesPerDay=Minute&dataStartDate=",
+            dstKyoto: "https://wdc.kugi.kyoto-u.ac.jp/dst_realtime/presentmonth/",
+            ksaEmbraceBase: "https://embracedata.inpe.br/ksa/",
+            corsProxy: "https://api.allorigins.win/raw?url="
+        };
+        let forecastData = {
+            timestamps: [],
+            kpPager: [],
+            kpNoaa: [],
+            hp30: [],
+            kpMax: [],
+            kpCurrent: null,
+            kpRealtime1m: null,
+            dstCurrent: null,
+            pilData: null,
+            vssData: null,
+            ksaIndex: null,
+            ksaData: null,
+            lastUpdate: {
+                dst: null,
+                pil: null,
+                vss: null,
+                ksa: null
+            }
+        };
+        async function fetchWithCORS(url) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Direct fetch failed');
+                return response;
+            } catch (error) {
+                console.log('Using CORS proxy for:', url);
+                const proxyUrl = DATA_SOURCES.corsProxy + encodeURIComponent(url);
+                return await fetch(proxyUrl);
+            }
+        }
+        async function loadPagerKp() {
+            try {
+                const response = await fetchWithCORS(DATA_SOURCES.kpPager);
+                const data = await response.json();
+                const timestamps = [];
+                const kpValues = [];
+                const kpMax = [];
+                const dataPoints = Object.keys(data['Time (UTC)']).length;
+                for (let i = 0; i < dataPoints; i++) {
+                    const timeStr = data['Time (UTC)'][i];
+                    const [dateStr, timeStr24] = timeStr.split(' ');
+                    const [day, month] = dateStr.split('-');
+                    const [hour] = timeStr24.split(':');
+                    timestamps.push(`${day}/${month} ${hour}h`);
+                    kpValues.push(parseFloat(data.median[i]));
+                    kpMax.push(parseFloat(data.maximum[i]));
+                }
+                return { timestamps, kpValues, kpMax, probabilities: data['prob 4-5'] };
+            } catch (error) {
+                console.error('Error loading PAGER Kp:', error);
+                return null;
+            }
+        }
+        async function loadNoaaKp() {
+            try {
+                const response = await fetchWithCORS(DATA_SOURCES.kpNoaa);
+                const text = await response.text();
+                const lines = text.split('\n');
+                const kpValues = [];
+                let dataStartIndex = -1;
+                for (let i = 0; i < lines.length; i++) {
+                    if (lines[i].includes('00-03UT')) {
+                        dataStartIndex = i;
+                        break;
+                    }
+                }
+                if (dataStartIndex === -1) return null;
+                for (let i = 0; i < 8; i++) {
+                    const line = lines[dataStartIndex + i];
+                    if (!line) continue;
+                    const values = line.trim().split(/\s+/).slice(1);
+                    if (values[0] && !isNaN(parseFloat(values[0]))) {
+                        kpValues.push(parseFloat(values[0]));
+                    }
+                }
+                return kpValues;
+            } catch (error) {
+                console.error('Error loading NOAA Kp:', error);
+                return null;
+            }
+        }
+        async function loadHp30() {
+            try {
+                const end = new Date();
+                const start = new Date(end.getTime() - 72 * 60 * 60 * 1000);
+                const startStr = start.toISOString().slice(0, 19) + 'Z';
+                const endStr = end.toISOString().slice(0, 19) + 'Z';
+                const url = `${DATA_SOURCES.hp30}?start=${startStr}&end=${endStr}&index=Hp30`;
+                const response = await fetchWithCORS(url);
+                const data = await response.json();
+                if (data && data.Hp30 && data.Hp30.length > 0) {
+                    const hp30Values = data.Hp30.map(v => parseFloat(v));
+                    const aggregated = [];
+                    for (let i = 0; i < hp30Values.length; i += 6) {
+                        const slice = hp30Values.slice(i, i + 6);
+                        const avg = slice.reduce((a, b) => a + b, 0) / slice.length;
+                        aggregated.push(avg);
+                    }
+                    return aggregated.slice(-24);
+                }
+                return null;
+            } catch (error) {
+                console.error('Error loading HP30:', error);
+                return null;
+            }
+        }
+        async function loadCurrentKp() {
+            try {
+                const response = await fetchWithCORS(DATA_SOURCES.kpRealtime1m);
+                const data = await response.json();
+                if (data && data.length > 0) {
+                    const latest = data[data.length - 1];
+                    return { kp: parseFloat(latest.Kp), timestamp: latest.time_tag };
+                }
+                return null;
+            } catch (error) {
+                console.error('Error loading realtime Kp:', error);
+                return null;
+            }
+        }
+        async function loadCurrentDst() {
+            try {
+                const now = new Date();
+                const yearShort = now.getFullYear().toString().slice(-2);
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const url = `${DATA_SOURCES.dstKyoto}dst${yearShort}${month}.for.request`;
+                const response = await fetchWithCORS(url);
+                const text = await response.text();
+                const lines = text.split('\n');
+                let latestDst = null;
+                for (const line of lines) {
+                    if (line.startsWith('DST')) {
+                        const nums = line.match(/[+-]?\d+/g);
+                        if (!nums || nums.length < 4) continue;
+                        const day = parseInt(nums[1]);
+                        if (day === now.getUTCDate()) {
+                            const values = nums.slice(3, 27).map(v => parseInt(v));
+                            const hour = now.getUTCHours();
+                            if (hour < values.length) {
+                                const val = values[hour];
+                                if (!isNaN(val) && val !== 9999) {
+                                    latestDst = val;
+                                }
+                            }
+                        }
+                    }
+                }
+                return latestDst;
+            } catch (error) {
+                console.error('Error loading DST from Kyoto:', error);
+                return null;
+            }
+        }
+        async function loadIntermagnetData(observatory = 'PIL') {
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const baseUrl = observatory === 'PIL' ? DATA_SOURCES.intermagnetPIL : DATA_SOURCES.intermagnetVSS;
+                const url = `${baseUrl}${today}&dataDuration=1&publicationState=best-avail&format=json`;
+                const response = await fetchWithCORS(url);
+                const data = await response.json();
+                if (data && data.data && data.data.length > 0) {
+                    const latest = data.data[data.data.length - 1];
+                    return { timestamp: latest.timestamp, x: latest.x, y: latest.y, z: latest.z, f: Math.sqrt(latest.x * latest.x + latest.y * latest.y + latest.z * latest.z), observatory: observatory };
+                }
+                return null;
+            } catch (error) {
+                console.error(`Error loading ${observatory} data:`, error);
+                return null;
+            }
+        }
+        async function loadKsaIndex() {
+            try {
+                const today = new Date();
+                const year = today.getFullYear();
+                const dateString = today.toISOString().split('T')[0];
+                const url = `${DATA_SOURCES.ksaEmbraceBase}${year}/${dateString}.txt`;
+                const response = await fetchWithCORS(url);
+                const text = await response.text();
+                const lines = text.trim().split('\n');
+                const timestamps = [];
+                const values = [];
+                for (const line of lines) {
+                    const parts = line.trim().split(/\s+/);
+                    if (parts.length >= 2) {
+                        const time = new Date(parts[0]);
+                        const hour = time.getUTCHours();
+                        timestamps.push(`${hour}h`);
+                        const val = parseFloat(parts[1].replace(/[+-]/g, ''));
+                        values.push(val);
+                    }
+                }
+                if (values.length > 0) {
+                    return { timestamps, values };
+                }
+                return null;
+            } catch (error) {
+                console.error('Error loading KSA:', error);
+                return null;
+            }
+        }
+        async function refreshData() {
+            document.getElementById('chartLoading').style.display = 'flex';
+            document.getElementById('systemStatus').textContent = 'Actualizando...';
+            try {
+                const [pagerData, noaaData, hp30Data, currentKpData, currentDst, pilData, vssData, ksaData] = await Promise.all([
+                    loadPagerKp(),
+                    loadNoaaKp(),
+                    loadHp30(),
+                    loadCurrentKp(),
+                    loadCurrentDst(),
+                    loadIntermagnetData('PIL'),
+                    loadIntermagnetData('VSS'),
+                    loadKsaIndex()
+                ]);
+                if (pagerData) {
+                    forecastData.timestamps = pagerData.timestamps.slice(0, 24);
+                    forecastData.kpPager = pagerData.kpValues.slice(0, 24);
+                    forecastData.kpMax = pagerData.kpMax.slice(0, 24);
+                    updateStatistics(pagerData);
+                }
+                if (noaaData) {
+                    forecastData.kpNoaa = interpolateNoaaData(noaaData, 24);
+                }
+                if (hp30Data) {
+                    forecastData.hp30 = hp30Data;
+                }
+                if (currentKpData) {
+                    forecastData.kpCurrent = currentKpData.kp;
+                    forecastData.kpRealtime1m = currentKpData;
+                }
+                if (currentDst !== null) {
+                    forecastData.dstCurrent = currentDst;
+                    forecastData.lastUpdate.dst = Date.now();
+                }
+                if (pilData) {
+                    forecastData.pilData = pilData;
+                    forecastData.lastUpdate.pil = Date.now();
+                }
+                if (vssData) {
+                    forecastData.vssData = vssData;
+                    forecastData.lastUpdate.vss = Date.now();
+                }
+                if (ksaData) {
+                    forecastData.ksaData = ksaData;
+                    forecastData.ksaIndex = ksaData.values[ksaData.values.length - 1];
+                    forecastData.lastUpdate.ksa = Date.now();
+                }
+                updateChart();
+                updateDroneStatus();
+                updateRiskFactors();
+                updateRegionalData();
+                document.getElementById('systemStatus').textContent = 'En línea';
+                document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('es-AR');
+            } catch (error) {
+                console.error('Error refreshing data:', error);
+                document.getElementById('systemStatus').textContent = 'Error de conexión';
+            } finally {
+                document.getElementById('chartLoading').style.display = 'none';
+            }
+        }
+        function interpolateNoaaData(noaaData, targetLength) {
+            const result = [];
+            const factor = noaaData.length / targetLength;
+            for (let i = 0; i < targetLength; i++) {
+                const index = Math.floor(i * factor);
+                result.push(noaaData[Math.min(index, noaaData.length - 1)]);
+            }
+            return result;
+        }
+        function updateStatistics(pagerData) {
+            const maxKp = Math.max(...pagerData.kpMax);
+            const avgKp = pagerData.kpValues.reduce((a, b) => a + b, 0) / pagerData.kpValues.length;
+            const maxKpIndex = pagerData.kpMax.indexOf(maxKp);
+            const maxKpTime = pagerData.timestamps[maxKpIndex];
+            const stormProb = Math.max(...Object.values(pagerData.probabilities || {})) * 100;
+            const displayKp = forecastData.kpCurrent !== null ? forecastData.kpCurrent : pagerData.kpValues[0];
+            document.getElementById('currentKp').textContent = displayKp.toFixed(1);
+            document.getElementById('maxKp').textContent = maxKp.toFixed(1);
+            document.getElementById('maxKpTime').textContent = `Esperado: ${maxKpTime}`;
+            document.getElementById('avgActivity').textContent = avgKp.toFixed(1);
+            document.getElementById('stormProb').textContent = `${stormProb.toFixed(0)}%`;
+            let activityLevel = 'Tranquila';
+            if (avgKp >= 4) activityLevel = 'Activa';
+            else if (avgKp >= 3) activityLevel = 'Perturbada';
+            document.getElementById('activityLevel').textContent = activityLevel;
+            let stormRisk = 'Muy bajo';
+            if (stormProb > 30) stormRisk = 'Alto';
+            else if (stormProb > 10) stormRisk = 'Moderado';
+            else if (stormProb > 5) stormRisk = 'Bajo';
+            document.getElementById('stormRisk').textContent = stormRisk;
+            const optimalHours = pagerData.kpValues.filter(kp => kp < 4).length;
+            document.getElementById('optimalWindow').textContent = `${optimalHours}h`;
+            document.getElementById('optimalHours').textContent = `de ${pagerData.timestamps.length}h totales`;
+        }
+        function updateRegionalData() {
+            if (forecastData.dstCurrent !== null) {
+                const dstValue = forecastData.dstCurrent;
+                let dstStatus = 'Normal';
+                let dstColor = '#10b981';
+                if (dstValue <= -200) {
+                    dstStatus = 'Tormenta severa';
+                    dstColor = '#ef4444';
+                } else if (dstValue <= -100) {
+                    dstStatus = 'Tormenta intensa';
+                    dstColor = '#f59e0b';
+                } else if (dstValue <= -50) {
+                    dstStatus = 'Tormenta moderada';
+                    dstColor = '#fbbf24';
+                } else if (dstValue <= -30) {
+                    dstStatus = 'Tormenta débil';
+                    dstColor = '#84cc16';
+                }
+                const dstElement = document.getElementById('dstValue');
+                if (dstElement) {
+                    dstElement.textContent = `${dstValue} nT`;
+                    dstElement.style.color = dstColor;
+                    const dstStatusElement = document.getElementById('dstStatus');
+                    if (dstStatusElement) {
+                        const upd = forecastData.lastUpdate.dst ? new Date(forecastData.lastUpdate.dst).toLocaleTimeString('es-AR') : 'N/D';
+                        dstStatusElement.textContent = `${dstStatus} | ${upd}`;
+                    }
+                }
+            }
+            if (forecastData.pilData && forecastData.pilData.f) {
+                const pilElement = document.getElementById('pilField');
+                if (pilElement) {
+                    pilElement.textContent = `${forecastData.pilData.f.toFixed(0)} nT`;
+                }
+                const pilStatus = document.getElementById('pilStatus');
+                if (pilStatus) {
+                    const upd = forecastData.lastUpdate.pil ? new Date(forecastData.lastUpdate.pil).toLocaleTimeString('es-AR') : 'N/D';
+                    pilStatus.textContent = `INTERMAGNET PIL | ${upd}`;
+                }
+            }
+            if (forecastData.ksaData && forecastData.ksaData.values.length > 0) {
+                const latestKsa = forecastData.ksaData.values[forecastData.ksaData.values.length - 1];
+                const ksaElement = document.getElementById('ksaValue');
+                if (ksaElement) {
+                    ksaElement.textContent = latestKsa.toFixed(1);
+                    let ksaColor = '#10b981';
+                    if (latestKsa >= 7) ksaColor = '#ef4444';
+                    else if (latestKsa >= 5) ksaColor = '#f59e0b';
+                    else if (latestKsa >= 4) ksaColor = '#fbbf24';
+                    ksaElement.style.color = ksaColor;
+                }
+                const ksaStatus = document.getElementById('ksaStatus');
+                if (ksaStatus) {
+                    const upd = forecastData.lastUpdate.ksa ? new Date(forecastData.lastUpdate.ksa).toLocaleTimeString('es-AR') : 'N/D';
+                    ksaStatus.textContent = `K Sudamericano | ${upd}`;
+                }
+            }
+            const samaElement = document.getElementById('samaIntensity');
+            if (samaElement) {
+                samaElement.textContent = '--';
+                const samaStatus = document.getElementById('samaStatus');
+                if (samaStatus) {
+                    samaStatus.textContent = 'Sin datos';
+                    samaStatus.style.color = '#64748b';
+                }
+            }
+            if (forecastData.vssData && forecastData.vssData.f) {
+                const vssElement = document.getElementById('vssField');
+                if (vssElement) {
+                    vssElement.textContent = `${forecastData.vssData.f.toFixed(0)} nT`;
+                }
+                const vssStatus = document.getElementById('vssStatus');
+                if (vssStatus) {
+                    const upd = forecastData.lastUpdate.vss ? new Date(forecastData.lastUpdate.vss).toLocaleTimeString('es-AR') : 'N/D';
+                    vssStatus.textContent = `INTERMAGNET VSS | ${upd}`;
+                }
+            }
+        }
+        function updateDroneStatus() {
+            const currentKp = forecastData.kpCurrent !== null ? forecastData.kpCurrent : (forecastData.kpPager[0] || 0);
+            const maxKp = Math.max(...forecastData.kpMax);
+            const statusElement = document.getElementById('droneStatus');
+            const statusText = document.getElementById('statusText');
+            const statusRecommendation = document.getElementById('statusRecommendation');
+            const droneIcon = statusElement.querySelector('.drone-icon');
+            if (currentKp >= 7 || maxKp >= 8) {
+                statusText.textContent = 'NO VOLAR';
+                statusText.className = 'drone-status-text drone-status-danger';
+                statusRecommendation.textContent = 'Tormenta geomagnética severa. Prohibido volar. Riesgo de pérdida de control.';
+                droneIcon.textContent = '⛔';
+            } else if (currentKp >= 5 || maxKp >= 6) {
+                statusText.textContent = 'PRECAUCIÓN';
+                statusText.className = 'drone-status-text drone-status-caution';
+                statusRecommendation.textContent = 'Actividad geomagnética alta. Evitar operaciones críticas de precisión.';
+                droneIcon.textContent = '⚠️';
+            } else if (currentKp >= 4 || maxKp >= 5) {
+                statusText.textContent = 'VUELO LIMITADO';
+                statusText.className = 'drone-status-text drone-status-caution';
+                statusRecommendation.textContent = 'Actividad moderada. Mantener línea visual y reducir distancia de operación.';
+                droneIcon.textContent = '🔶';
+            } else {
+                statusText.textContent = 'VUELO SEGURO';
+                statusText.className = 'drone-status-text drone-status-safe';
+                statusRecommendation.textContent = 'Condiciones óptimas para operaciones de agricultura de precisión.';
+                droneIcon.textContent = '✅';
+            }
+        }
+        function updateRiskFactors() {
+            const currentKp = forecastData.kpCurrent !== null ? forecastData.kpCurrent : (forecastData.kpPager[0] || 0);
+            const gpsRisk = document.getElementById('gpsRisk');
+            const gpsRiskText = document.getElementById('gpsRiskText');
+            if (currentKp >= 7) {
+                gpsRisk.className = 'risk-indicator risk-high';
+                gpsRiskText.textContent = 'Degradación severa (±10-30m)';
+                document.getElementById('gpsAccuracy').textContent = '±10-30m';
+            } else if (currentKp >= 5) {
+                gpsRisk.className = 'risk-indicator risk-medium';
+                gpsRiskText.textContent = 'Precisión reducida (±5-10m)';
+                document.getElementById('gpsAccuracy').textContent = '±5-10m';
+            } else if (currentKp >= 4) {
+                gpsRisk.className = 'risk-indicator risk-medium';
+                gpsRiskText.textContent = 'Variaciones menores (±2-5m)';
+                document.getElementById('gpsAccuracy').textContent = '±2-5m';
+            } else {
+                gpsRisk.className = 'risk-indicator risk-low';
+                gpsRiskText.textContent = 'Precisión normal (±1m)';
+                document.getElementById('gpsAccuracy').textContent = '±1m';
+            }
+            const magRisk = document.getElementById('magRisk');
+            const magRiskText = document.getElementById('magRiskText');
+            if (currentKp >= 6) {
+                magRisk.className = 'risk-indicator risk-high';
+                magRiskText.textContent = 'Interferencia severa';
+            } else if (currentKp >= 4) {
+                magRisk.className = 'risk-indicator risk-medium';
+                magRiskText.textContent = 'Interferencia moderada';
+            } else {
+                magRisk.className = 'risk-indicator risk-low';
+                magRiskText.textContent = 'Sin interferencias';
+            }
+            const commRisk = document.getElementById('commRisk');
+            const commRiskText = document.getElementById('commRiskText');
+            if (currentKp >= 7) {
+                commRisk.className = 'risk-indicator risk-medium';
+                commRiskText.textContent = 'Posibles interrupciones';
+            } else {
+                commRisk.className = 'risk-indicator risk-low';
+                commRiskText.textContent = 'Señal estable';
+            }
+            const samaRisk = document.getElementById('samaRisk');
+            const samaRiskText = document.getElementById('samaRiskText');
+            if (currentKp >= 5) {
+                samaRisk.className = 'risk-indicator risk-medium';
+                samaRiskText.textContent = 'Efecto amplificado';
+            } else {
+                samaRisk.className = 'risk-indicator risk-low';
+                samaRiskText.textContent = 'Efecto mínimo';
+            }
+        }
+        function updateChart() {
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            const datasets = [
+                { label: 'Kp PAGER/GFZ', data: forecastData.kpPager, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderWidth: 3, tension: 0.4, pointRadius: 4, pointBackgroundColor: '#10b981' }
+            ];
+            if (forecastData.kpNoaa.length > 0) {
+                datasets.push({ label: 'Kp NOAA/SWPC', data: forecastData.kpNoaa, borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)', borderWidth: 2, borderDash: [5, 5], tension: 0.4, pointRadius: 3, pointBackgroundColor: '#f59e0b' });
+            }
+            if (forecastData.hp30.length > 0) {
+                datasets.push({ label: 'HP30 GFZ', data: forecastData.hp30, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 2, borderDash: [2, 2], tension: 0.4, pointRadius: 2, pointBackgroundColor: '#3b82f6' });
+            }
+            if (forecastData.ksaData && forecastData.ksaData.values.length > 0) {
+                const ksaArray = new Array(forecastData.timestamps.length).fill(null);
+                for (let i = 0; i < forecastData.ksaData.values.length && i < ksaArray.length; i++) {
+                    ksaArray[i] = forecastData.ksaData.values[i];
+                }
+                datasets.push({ label: 'KSA EMBRACE', data: ksaArray, borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', borderWidth: 2, borderDash: [10, 5], tension: 0.4, pointRadius: 3, pointBackgroundColor: '#8b5cf6' });
+            }
+            if (mainChart) {
+                mainChart.data.labels = forecastData.timestamps;
+                mainChart.data.datasets = datasets;
+                mainChart.update();
+                return;
+            }
+            mainChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels: forecastData.timestamps, datasets: datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            titleColor: '#f1f5f9',
+                            bodyColor: '#cbd5e1',
+                            borderColor: 'rgba(148, 163, 184, 0.3)',
+                            borderWidth: 1,
+                            padding: 12,
+                            displayColors: true,
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) label += ': ';
+                                    label += context.parsed.y.toFixed(2);
+                                    return label;
+                                }
+                            }
+                        },
+                        annotation: {
+                            annotations: {
+                                line1: {
+                                    type: 'line',
+                                    yMin: 5,
+                                    yMax: 5,
+                                    borderColor: 'rgba(239, 68, 68, 0.5)',
+                                    borderWidth: 2,
+                                    borderDash: [5, 5],
+                                    label: { content: 'Umbral de riesgo', enabled: true, position: 'start', backgroundColor: 'rgba(239, 68, 68, 0.8)', color: 'white', padding: 4, font: { size: 11 } }
+                                },
+                                box1: { type: 'box', yMin: 5, yMax: 9, backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 0 }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { color: 'rgba(148, 163, 184, 0.1)', drawBorder: false }, ticks: { color: '#94a3b8', maxRotation: 45, minRotation: 0, font: { size: 11 } } },
+                        y: { beginAtZero: true, max: 9, grid: { color: 'rgba(148, 163, 184, 0.1)', drawBorder: false }, ticks: { color: '#94a3b8', stepSize: 1, font: { size: 11 } } }
+                    }
+                }
+            });
+        }
+        function toggleAutoRefresh() {
+            isAutoRefreshEnabled = !isAutoRefreshEnabled;
+            const statusSpan = document.getElementById('autoRefreshStatus');
+            if (isAutoRefreshEnabled) {
+                statusSpan.textContent = 'ON';
+                autoRefreshInterval = setInterval(refreshData, 10 * 60 * 1000);
+            } else {
+                statusSpan.textContent = 'OFF';
+                if (autoRefreshInterval) {
+                    clearInterval(autoRefreshInterval);
+                    autoRefreshInterval = null;
+                }
+            }
+        }
+        document.addEventListener('DOMContentLoaded', function() { refreshData(); });
+        window.addEventListener('online', function() { document.getElementById('systemStatus').textContent = 'Reconectando...'; refreshData(); });
+        window.addEventListener('offline', function() { document.getElementById('systemStatus').textContent = 'Sin conexión'; });
+    </script>
+</body>
+</html>
